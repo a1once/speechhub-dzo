@@ -341,6 +341,10 @@
   }
   .pick:hover{background:var(--panel-hi)}
   .pick.on{background:var(--gold);color:var(--ink)}
+  .pick:not(.on){background:rgba(110,42,5,.35)}
+  .pick:not(.on) .who{opacity:.6}
+  .pick:not(.on) .who b{text-decoration:line-through;text-decoration-thickness:2px}
+  .pick:not(.on) .who small::after{content:" · выбыл(а)"}
   .pick input{width:22px;height:22px;accent-color:var(--ink);cursor:pointer;flex:0 0 auto}
   .pick .who{display:flex;flex-direction:column;gap:2px;min-width:0}
   .pick .who b{font-size:16px}
@@ -1284,10 +1288,10 @@
     var t = state.tour, T = tourOf(t);
     if (!T.pass || spinning) return;
     selT = t;
-    var next = roster(t + 1) || [];
+    var next = roster(t + 1);   // нет состава — по умолчанию отмечены все
     el.selectTitle.textContent = 'Итоги тура ' + t + ' · кто проходит в тур ' + (t + 1);
-    el.selectLead.textContent = 'Отметьте прошедших по решению жюри. По регламенту дальше идут ' +
-      T.pass.W + ' из Women’s Space и ' + T.pass.M + ' из Batyr. Только они попадут в рандомайзер тура ' + (t + 1) + '.';
+    el.selectLead.textContent = 'Снимите отметку с выбывших по решению жюри. По регламенту дальше идут ' +
+      T.pass.W + ' из Women’s Space и ' + T.pass.M + ' из Batyr. В рандомайзер тура ' + (t + 1) + ' попадут только отмеченные.';
     el.selectOk.textContent = 'Перейти к туру ' + (t + 1);
     [['W', el.listW], ['M', el.listM]].forEach(function(pair){
       var team = pair[0], box = pair[1];
@@ -1296,7 +1300,7 @@
         var p = BY_ID[id];
         var lab = document.createElement('label'); lab.className = 'pick';
         var cb = document.createElement('input'); cb.type = 'checkbox'; cb.value = id; cb.dataset.team = team;
-        cb.checked = next.indexOf(id) !== -1;
+        cb.checked = next ? next.indexOf(id) !== -1 : true;
         var who = document.createElement('span'); who.className = 'who';
         var nm = document.createElement('b'); nm.textContent = p.name;
         var sm = document.createElement('small'); sm.textContent = p.branch;
@@ -1322,8 +1326,10 @@
     var ids = checkedIds();
     [['W', el.needW], ['M', el.needM]].forEach(function(pair){
       var n = byTeam(ids, pair[0]).length, need = T.pass[pair[0]];
-      pair[1].textContent = 'выбрано ' + n + ' из ' + need;
-      pair[1].className = 'need' + (n === need ? ' ok' : (n > need ? ' over' : ''));
+      pair[1].textContent = n === need ? 'проходят ' + n + ' ✓'
+        : n > need ? 'уберите ещё ' + (n - need) + ' · проходят ' + need
+        : 'лишний выбывший: верните ' + (need - n);
+      pair[1].className = 'need' + (n === need ? ' ok' : (n < need ? ' over' : ''));
     });
   }
   function applySelect(){
