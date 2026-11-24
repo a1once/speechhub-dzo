@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#C25210">
+<title>SpeechHub — таймеры</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23C25210'/%3E%3Cpath d='M20 22h24a4 4 0 0 1 4 4v12a4 4 0 0 1-4 4H32l-8 7v-7h-4a4 4 0 0 1-4-4V26a4 4 0 0 1 4-4z' fill='%23FFDA93'/%3E%3C/svg%3E">
+<style>
+  :root{
+    /* гамма 25 ноября — «Окрась мир в оранжевый» (по back.jpg) */
+    --bg:#C25210;
+    --bg-deep:#9A3F0B;
+    --panel:#A3440C;
+    --panel-hi:#B14B10;
+    --line:rgba(255,218,147,.30);
+    --orange:#D85808;
+    --orange-hi:#E8701E;
+    --orange-deep:#A3440C;
+    --orange-soft:#FFDA93;
+    --peach:#FFDDD1;
+    --gold:#FFDA93;
+    --gold-hi:#FFE6B3;
+    --white:#FFF6EE;
+    --ink:#6E2A05;
+    --red:#EF4444;
+    --red-deep:#7F1D1D;
+    --focus:#FFFFFF;
+    --radius:28px;
+    --ring:var(--orange);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{min-height:100%}
+  body{
+    background:
+      radial-gradient(1100px 600px at 15% -10%, rgba(216,88,8,.55), transparent 60%),
+      radial-gradient(900px 500px at 100% 110%, rgba(153,75,27,.45), transparent 60%),
+      var(--bg);
+    background-attachment:fixed;
+    color:var(--white);min-height:100vh;
+    font-family:"Segoe UI","Inter",Roboto,"Helvetica Neue",Arial,sans-serif;
+    overflow-x:hidden;
+  }
+  header{display:flex;align-items:center;justify-content:space-between;padding:20px 32px;flex-wrap:wrap;gap:12px}
+  .brand{display:flex;align-items:center;gap:12px;font-size:20px;font-weight:800;letter-spacing:.06em}
+  .brand .logo{
+    width:36px;height:36px;border-radius:11px;flex:0 0 auto;
+    background:var(--gold);
+    display:grid;place-items:center;box-shadow:0 6px 18px rgba(110,42,5,.3);
+  }
+  .brand .logo svg{width:22px;height:22px}
+  .brand .logo svg path{fill:var(--bg)}
+  .brand span{color:var(--orange-soft);font-weight:600;letter-spacing:.02em}
+  .head-tools{display:flex;gap:10px;flex-wrap:wrap}
+
+  button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+  .chip{
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;
+    background:var(--panel-hi);color:var(--white);
+    border-radius:999px;padding:10px 18px;font-size:15px;font-weight:600;
+    transition:transform .12s ease, background .12s ease, box-shadow .12s ease;
+  }
+  .chip:hover{background:var(--orange)}
+  .chip:active{transform:scale(.96)}
+  .chip.ghost{background:transparent;box-shadow:inset 0 0 0 2px rgba(255,218,147,.55);color:var(--white)}
+  .chip.ghost:hover{background:rgba(255,218,147,.14);box-shadow:inset 0 0 0 2px var(--gold)}
+  .chip svg{width:18px;height:18px;flex:0 0 auto}
+  :focus-visible{outline:3px solid var(--focus);outline-offset:3px}
+
+  main{padding:4px 32px 40px;max-width:1240px;margin:0 auto}
+  .layout{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:26px;align-items:start}
+
+  /* сцена с таймером */
+  .stage{
+    position:relative;border-radius:var(--radius);
+    background:linear-gradient(180deg,#FFDF9E 0%,#FFD488 100%);color:var(--ink);
+    box-shadow:inset 0 0 0 2px rgba(110,42,5,.12), 0 18px 60px -24px rgba(110,42,5,.6);
+    min-height:clamp(380px,66vh,640px);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:28px;cursor:pointer;user-select:none;overflow:hidden;
+    transition:background .4s ease, box-shadow .4s ease;
+  }
+  .dial{position:relative;width:min(100%,58vh,520px);aspect-ratio:1}
+  .dial svg{width:100%;height:100%;transform:rotate(-90deg);display:block}
+  .dial .track{stroke:rgba(110,42,5,.12)}
+  .dial .bar{stroke:var(--ring)}
+  .readout{
+    position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+  }
+  .time{
+    font-size:clamp(56px,11vw,150px);font-weight:800;line-height:1;
+    font-variant-numeric:tabular-nums;letter-spacing:-.02em;
+  }
+  .status{
+    font-size:clamp(13px,1.4vw,17px);font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--orange-deep);
+  }
+  .stage-hint{
+    position:absolute;bottom:18px;left:0;right:0;text-align:center;
+    font-size:14px;color:var(--orange-deep);
+  }
+  .stage-hint kbd{
+    font-family:inherit;font-weight:700;color:var(--ink);
+    background:rgba(110,42,5,.12);border-radius:6px;padding:1px 7px;
+  }
+  .stage.warn .stage-hint, .stage.done .stage-hint{color:#FECACA}
+  .stage.warn .stage-hint kbd, .stage.done .stage-hint kbd{color:var(--white);background:rgba(255,255,255,.14)}
+  .stage:focus-visible{outline-color:var(--ink)}
+
+  .stage.warn{background:linear-gradient(180deg,#6B1A0E 0%,#4A1006 100%);box-shadow:inset 0 0 0 2px rgba(239,68,68,.55)}
+  .stage.warn{--ring:var(--red)}
+  .stage.warn .time{color:#FECACA}
+  .stage.warn .status{color:#FCA5A5}
+  .stage.done{background:var(--red-deep);box-shadow:inset 0 0 0 2px rgba(239,68,68,.8);--ring:var(--red)}
+  .stage.done .time{color:var(--white);font-size:clamp(56px,10vw,140px);letter-spacing:.04em}
+  .stage.done .status{color:#FECACA}
+  .stage.blink{animation:blink .5s steps(1) infinite}
+  @keyframes blink{50%{background:#DC2626}}
+
+  .stage:fullscreen{border-radius:0;min-height:100vh;box-shadow:none}
+  .stage:fullscreen .dial{width:min(88vmin,900px)}
+  .stage:fullscreen .time{font-size:min(22vmin,220px)}
+  .stage:fullscreen .status{font-size:min(2.6vmin,24px)}
+  .stage:-webkit-full-screen{border-radius:0;width:100%;height:100%}
+
+  /* панель управления */
+  .panel{
+    background:rgba(110,42,5,.42);border-radius:var(--radius);
+    box-shadow:inset 0 0 0 2px var(--line);padding:24px;display:flex;flex-direction:column;gap:22px;
+  }
+  .panel h2{font-size:13px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--orange-soft);margin-bottom:12px}
+  .presets{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .preset{
+    background:var(--panel);color:var(--white);border-radius:14px;padding:12px 6px;
+    font-size:16px;font-weight:700;box-shadow:inset 0 0 0 1px var(--line);
+    transition:background .12s ease, transform .12s ease;
+  }
+  .preset small{display:block;font-size:11px;font-weight:600;color:var(--orange-soft);margin-top:2px;letter-spacing:.06em}
+  .preset:hover{background:var(--panel-hi)}
+  .preset:active{transform:scale(.96)}
+  .preset[aria-pressed="true"]{background:var(--gold);color:var(--ink);box-shadow:none}
+  .preset[aria-pressed="true"] small{color:var(--orange-deep)}
+
+  .custom{display:flex;gap:8px;align-items:center}
+  .custom input{
+    width:64px;background:var(--panel);color:var(--white);border:none;border-radius:12px;
+    box-shadow:inset 0 0 0 1px var(--line);padding:11px 8px;text-align:center;
+    font-family:inherit;font-size:18px;font-weight:700;font-variant-numeric:tabular-nums;
+  }
+  .custom span{color:var(--orange-soft);font-weight:700}
+  .custom .chip{margin-left:auto}
+
+  .main-ctrls{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .go{
+    grid-column:1 / -1;
+    display:inline-flex;align-items:center;justify-content:center;gap:12px;
+    background:linear-gradient(180deg,var(--gold-hi) 0%,var(--gold) 100%);color:var(--ink);
+    font-size:22px;font-weight:800;letter-spacing:.03em;padding:18px 24px;border-radius:999px;
+    box-shadow:0 10px 30px -8px rgba(110,42,5,.6), inset 0 -3px 0 rgba(110,42,5,.15);
+    transition:transform .12s ease, filter .12s ease;
+  }
+  .go:hover{filter:brightness(1.04)}
+  .go:active{transform:scale(.97)}
+  .go svg{width:24px;height:24px}
+
+  .opts{display:flex;align-items:center;gap:10px;font-size:15px;cursor:pointer}
+  input[type=checkbox]{width:20px;height:20px;accent-color:var(--orange);cursor:pointer}
+  .keys{font-size:14px;line-height:1.9;color:var(--orange-soft)}
+  .keys kbd{
+    font-family:inherit;font-weight:700;color:var(--white);
+    background:rgba(255,218,147,.18);border-radius:6px;padding:1px 7px;
+  }
+
+  @media (max-width:980px){
+    .layout{grid-template-columns:1fr}
+    .stage{min-height:auto;aspect-ratio:auto;padding:28px 16px 56px}
+    .dial{width:min(100%,62vh,520px)}
+  }
+  @media (max-width:640px){
+    header{padding:16px}
+    main{padding:4px 16px 32px}
+    .panel{padding:18px}
+    .chip .lbl{display:none}
+    .chip{padding:10px 12px}
+    .custom .chip .lbl{display:inline}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .stage.blink{animation:none}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="logo" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M5 6h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-7l-5 4v-4H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z" fill="#2B0D04"/></svg>
+    </div>
+    <div>SpeechHub <span>· таймеры</span></div>
+  </div>
+  <div class="head-tools">
+    <a class="chip ghost" href="index.html" title="К жеребьёвке">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      <span class="lbl">К жеребьёвке</span>
+    </a>
+  </div>
+</header>
+
+<main>
+  <div class="layout">
+    <section class="stage" id="stage" title="Нажмите, чтобы запустить или поставить на паузу">
+      <div class="dial">
+        <svg viewBox="0 0 200 200" aria-hidden="true">
+          <circle class="track" cx="100" cy="100" r="90" fill="none" stroke-width="10"/>
+          <circle class="bar" id="bar" cx="100" cy="100" r="90" fill="none" stroke-width="10" stroke-linecap="round"/>
+        </svg>
+        <div class="readout">
+          <div class="time" id="time" role="timer" aria-live="off">1:00</div>
+          <div class="status" id="status">Готов</div>
+        </div>
+      </div>
+      <div class="stage-hint" id="stageHint"><kbd>Пробел</kbd> — старт / пауза · <kbd>R</kbd> — сброс · <kbd>F</kbd> — во весь экран</div>
+    </section>
+
+    <aside class="panel">
+      <div>
+        <h2>Длительность</h2>
+        <div class="presets" id="presets"></div>
+      </div>
+
+      <div>
+        <h2>Своё время</h2>
+        <form class="custom" id="customForm">
+          <input id="customMin" type="number" min="0" max="99" value="2" inputmode="numeric" aria-label="Минуты">
+          <span>мин</span>
+          <input id="customSec" type="number" min="0" max="59" value="0" inputmode="numeric" aria-label="Секунды">
+          <span>сек</span>
+          <button class="chip" type="submit"><span class="lbl">Задать</span></button>
+        </form>
+      </div>
+
+      <div class="main-ctrls">
+        <button class="go" id="goBtn">
+          <svg id="goIcon" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          <span id="goLbl">Старт</span>
+        </button>
+        <button class="chip ghost" id="resetBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+          Сброс
+        </button>
+        <button class="chip ghost" id="fsBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+          Весь экран
+        </button>
+        <button class="chip ghost" id="minusBtn" title="Убавить 10 секунд (↓)">−10 с</button>
+        <button class="chip ghost" id="plusBtn" title="Добавить 10 секунд (↑)">+10 с</button>
+      </div>
+
+      <label class="opts"><input type="checkbox" id="soundChk" checked> Звуковой сигнал в конце</label>
+
+      <div class="keys">
+        <kbd>Пробел</kbd> старт / пауза · <kbd>R</kbd> сброс<br>
+        <kbd>F</kbd> во весь экран · <kbd>1</kbd>–<kbd>7</kbd> быстрый выбор<br>
+        <kbd>↑</kbd> <kbd>↓</kbd> ±10 секунд<br>
+        Последние 10 секунд таймер краснеет, в конце 3 секунды мигает «ВРЕМЯ».
+      </div>
+    </aside>
+  </div>
+</main>
+
+<script>
+(function(){
+  "use strict";
+
+  var STORE_KEY = 'speechhub:timer';
+  var WARN_AT = 10;      // секунд до конца — красный режим
+  var BLINK_MS = 3000;   // сколько мигает «ВРЕМЯ»
+  var PRESETS = [
+    { s: 30,  label: '30', unit: 'секунд' },
+    { s: 45,  label: '45', unit: 'секунд' },
+    { s: 60,  label: '1',  unit: 'минута' },
+    { s: 90,  label: '1,5', unit: 'минуты' },
+    { s: 120, label: '2',  unit: 'минуты' },
+    { s: 180, label: '3',  unit: 'минуты' },
+    { s: 300, label: '5',  unit: 'минут' }
+  ];
+
+  var el = {
+    stage: document.getElementById('stage'),
+    bar: document.getElementById('bar'),
+    time: document.getElementById('time'),
+    status: document.getElementById('status'),
+    presets: document.getElementById('presets'),
+    goBtn: document.getElementById('goBtn'),
+    goLbl: document.getElementById('goLbl'),
+    goIcon: document.getElementById('goIcon'),
+    resetBtn: document.getElementById('resetBtn'),
+    fsBtn: document.getElementById('fsBtn'),
+    minusBtn: document.getElementById('minusBtn'),
+    plusBtn: document.getElementById('plusBtn'),
+    soundChk: document.getElementById('soundChk'),
+    customForm: document.getElementById('customForm'),
+    customMin: document.getElementById('customMin'),
+    customSec: document.getElementById('customSec')
+  };
+
+  var CIRC = 2 * Math.PI * 90;
+  el.bar.style.strokeDasharray = CIRC;
+
+  var t = {
+    total: 60000,       // мс
+    remaining: 60000,   // мс, актуально когда не идёт
+    endAt: 0,           // performance.now() момента окончания
+    mode: 'idle',       // idle | running | paused | done
+    lastSec: null,
+    blinkTimer: null
+  };
+  var sound = true;
+
+  /* ---------- хранение ---------- */
+  function save(){
+    try { localStorage.setItem(STORE_KEY, JSON.stringify({ total: t.total, sound: sound })); } catch(e){}
+  }
+  function load(){
+    try {
+      var d = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
+      if (d){
+        if (typeof d.total === 'number' && d.total >= 1000 && d.total <= 5999000){ t.total = t.remaining = d.total; }
+        sound = d.sound !== false;
+      }
+    } catch(e){}
+  }
+
+  /* ---------- звук ---------- */
+  var actx = null;
+  function ctx(){
+    if (!actx){
+      var C = window.AudioContext || window.webkitAudioContext;
+      if (C) actx = new C();
+    }
+    if (actx && actx.state === 'suspended') actx.resume();
+    return actx;
+  }
+  function beep(freq, dur, vol, type){
+    if (!sound) return;
+    var a = ctx(); if (!a) return;
+    var o = a.createOscillator(), g = a.createGain();
+    o.type = type || 'triangle'; o.frequency.value = freq;
+    g.gain.setValueAtTime(vol, a.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + dur);
+    o.connect(g); g.connect(a.destination);
+    o.start(); o.stop(a.currentTime + dur);
+  }
+  function gong(){
+    if (!sound) return;
+    [392, 523.25, 659.25].forEach(function(f, i){
+      setTimeout(function(){ beep(f, 1.2, 0.18); }, i * 90);
+    });
+  }
+
+  /* ---------- не гасить экран, пока идёт отсчёт ---------- */
+  var wakeLock = null;
+  function lockScreen(){
+    if (!('wakeLock' in navigator) || wakeLock) return;
+    navigator.wakeLock.request('screen').then(function(l){
+      wakeLock = l;
+      l.addEventListener('release', function(){ wakeLock = null; });
+    }).catch(function(){});
+  }
+  function unlockScreen(){
+    if (wakeLock){ try { wakeLock.release(); } catch(e){} wakeLock = null; }
+  }
+
+  /* ---------- отображение ---------- */
+  function fmt(ms){
+    var s = Math.ceil(ms / 1000);
+    var m = Math.floor(s / 60);
+    var r = s % 60;
+    return m + ':' + (r < 10 ? '0' : '') + r;
+  }
+  function currentRemaining(){
+    return t.mode === 'running' ? Math.max(0, t.endAt - performance.now()) : t.remaining;
+  }
+
+  function render(){
+    var rem = currentRemaining();
+    var frac = t.total > 0 ? rem / t.total : 0;
+    el.bar.style.strokeDashoffset = CIRC * (1 - frac);
+
+    if (t.mode === 'done'){
+      el.time.textContent = 'ВРЕМЯ';
+      el.status.textContent = 'Выступление окончено';
+    } else {
+      el.time.textContent = fmt(rem);
+      el.status.textContent =
+        t.mode === 'running' ? 'Идёт отсчёт' :
+        t.mode === 'paused'  ? 'Пауза' : 'Готов';
+    }
+
+    var secLeft = Math.ceil(rem / 1000);
+    el.stage.classList.toggle('warn', t.mode !== 'done' && t.mode !== 'idle' && secLeft <= WARN_AT);
+    el.stage.classList.toggle('done', t.mode === 'done');
+
+    var running = t.mode === 'running';
+    el.goLbl.textContent = running ? 'Пауза' : (t.mode === 'paused' ? 'Продолжить' : (t.mode === 'done' ? 'Заново' : 'Старт'));
+    el.goIcon.innerHTML = running
+      ? '<path d="M7 5h4v14H7zM13 5h4v14h-4z"/>'
+      : '<path d="M8 5v14l11-7z"/>';
+
+    Array.prototype.forEach.call(el.presets.children, function(b){
+      b.setAttribute('aria-pressed', Number(b.dataset.s) * 1000 === t.total ? 'true' : 'false');
+    });
+  }
+
+  function loop(){
+    if (t.mode !== 'running') return;
+    var rem = t.endAt - performance.now();
+    var sec = Math.ceil(rem / 1000);
+    if (sec !== t.lastSec){
+      t.lastSec = sec;
+      if (sec > 0 && sec <= 5) beep(sec === 1 ? 990 : 880, 0.12, 0.12);
+    }
+    if (rem <= 0){ finish(); return; }
+    render();
+    requestAnimationFrame(loop);
+  }
+
+  /* ---------- управление ---------- */
+  function start(){
+    if (t.mode === 'done'){ reset(); }
+    if (t.remaining <= 0) return;
+    ctx();
+    t.endAt = performance.now() + t.remaining;
+    t.mode = 'running';
+    t.lastSec = Math.ceil(t.remaining / 1000);
+    lockScreen();
+    render();
+    requestAnimationFrame(loop);
+    // запасной тик: rAF замирает в фоновой вкладке, а сигнал должен прозвучать вовремя
+    clearInterval(t.backup);
+    t.backup = setInterval(function(){
+      if (t.mode !== 'running'){ clearInterval(t.backup); return; }
+      if (t.endAt - performance.now() <= 0) finish();
+    }, 250);
+  }
+  function pause(){
+    if (t.mode !== 'running') return;
+    t.remaining = Math.max(0, t.endAt - performance.now());
+    t.mode = 'paused';
+    unlockScreen();
+    render();
+  }
+  function toggle(){ t.mode === 'running' ? pause() : start(); }
+
+  function finish(){
+    if (t.mode !== 'running') return;
+    clearInterval(t.backup);
+    t.mode = 'done';
+    t.remaining = 0;
+    unlockScreen();
+    gong();
+    render();
+    el.stage.classList.add('blink');
+    clearTimeout(t.blinkTimer);
+    t.blinkTimer = setTimeout(function(){ el.stage.classList.remove('blink'); }, BLINK_MS);
+  }
+  function reset(){
+    clearTimeout(t.blinkTimer);
+    el.stage.classList.remove('blink');
+    t.mode = 'idle';
+    t.remaining = t.total;
+    unlockScreen();
+    render();
+  }
+  function setDuration(ms){
+    ms = Math.max(1000, Math.min(ms, 5999000));
+    t.total = ms;
+    reset();
+    save();
+  }
+  function adjust(deltaMs){
+    if (t.mode === 'done') return;
+    if (t.mode === 'running'){
+      var rem = Math.max(1000, t.endAt - performance.now() + deltaMs);
+      t.endAt = performance.now() + rem;
+      if (rem > t.total) t.total = rem;
+    } else {
+      t.remaining = Math.max(1000, t.remaining + deltaMs);
+      if (t.mode === 'idle' || t.remaining > t.total) t.total = t.remaining;
+      if (t.mode === 'idle') save();
+    }
+    render();
+  }
+  function toggleFullscreen(){
+    if (document.fullscreenElement || document.webkitFullscreenElement){
+      (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    } else {
+      var go = el.stage.requestFullscreen || el.stage.webkitRequestFullscreen;
+      if (go) go.call(el.stage);
+    }
+  }
+
+  /* ---------- пресеты ---------- */
+  PRESETS.forEach(function(p, i){
+    var b = document.createElement('button');
+    b.className = 'preset';
+    b.dataset.s = p.s;
+    b.title = 'Клавиша ' + (i + 1);
+    b.textContent = p.label;
+    var sm = document.createElement('small');
+    sm.textContent = p.unit;
+    b.appendChild(sm);
+    b.addEventListener('click', function(){ setDuration(p.s * 1000); });
+    el.presets.appendChild(b);
+  });
+
+  el.customForm.addEventListener('submit', function(e){
+    e.preventDefault();
+    var m = parseInt(el.customMin.value, 10) || 0;
+    var s = parseInt(el.customSec.value, 10) || 0;
+    m = Math.max(0, Math.min(m, 99));
+    s = Math.max(0, Math.min(s, 59));
+    if (m === 0 && s === 0) return;
+    setDuration((m * 60 + s) * 1000);
+  });
+
+  el.goBtn.addEventListener('click', toggle);
+  el.resetBtn.addEventListener('click', reset);
+  el.fsBtn.addEventListener('click', toggleFullscreen);
+  el.minusBtn.addEventListener('click', function(){ adjust(-10000); });
+  el.plusBtn.addEventListener('click', function(){ adjust(10000); });
+  el.stage.addEventListener('click', toggle);
+  el.stage.addEventListener('dblclick', function(e){ e.preventDefault(); toggleFullscreen(); });
+
+  el.soundChk.addEventListener('change', function(){
+    sound = el.soundChk.checked;
+    save();
+  });
+
+  document.addEventListener('keydown', function(e){
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    var tag = e.target && e.target.tagName;
+    if (tag === 'INPUT') return;
+    var onControl = tag === 'BUTTON' || tag === 'A';
+    if (e.code === 'Space'){ e.preventDefault(); toggle(); return; }
+    if (e.key === 'Enter' && !onControl){ e.preventDefault(); toggle(); return; }
+    if (e.code === 'KeyR'){ reset(); return; }
+    if (e.code === 'KeyF'){ toggleFullscreen(); return; }
+    if (e.key === 'ArrowUp'){ e.preventDefault(); adjust(10000); return; }
+    if (e.key === 'ArrowDown'){ e.preventDefault(); adjust(-10000); return; }
+    var m = /^(?:Digit|Numpad)([1-9])$/.exec(e.code);
+    if (m && Number(m[1]) <= PRESETS.length){
+      setDuration(PRESETS[Number(m[1]) - 1].s * 1000);
+    }
+  });
+
+  document.addEventListener('visibilitychange', function(){
+    if (document.visibilityState === 'visible' && t.mode === 'running') lockScreen();
+  });
+
+  /* ---------- старт ---------- */
+  load();
+  el.soundChk.checked = sound;
+  reset();
+})();
+</script>
+</body>
+</html>
