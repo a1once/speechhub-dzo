@@ -198,9 +198,9 @@
     <div>SpeechHub <span>· таймеры</span></div>
   </div>
   <div class="head-tools">
-    <a class="chip ghost" href="index.html" title="К жеребьёвке">
+    <a class="chip ghost" href="index.html" title="К жеребьевке">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-      <span class="lbl">К жеребьёвке</span>
+      <span class="lbl">К жеребьевке</span>
     </a>
   </div>
 </header>
@@ -228,7 +228,7 @@
       </div>
 
       <div>
-        <h2>Своё время</h2>
+        <h2>Свое время</h2>
         <form class="custom" id="customForm">
           <input id="customMin" type="number" min="0" max="99" value="2" inputmode="numeric" aria-label="Минуты">
           <span>мин</span>
@@ -307,7 +307,7 @@
 
   var t = {
     total: 60000,       // мс
-    remaining: 60000,   // мс, актуально когда не идёт
+    remaining: 60000,   // мс, актуально когда не идет
     endAt: 0,           // performance.now() момента окончания
     mode: 'idle',       // idle | running | paused | done
     lastSec: null,
@@ -356,7 +356,7 @@
     });
   }
 
-  /* ---------- не гасить экран, пока идёт отсчёт ---------- */
+  /* ---------- не гасить экран, пока идет отсчет ---------- */
   var wakeLock = null;
   function lockScreen(){
     if (!('wakeLock' in navigator) || wakeLock) return;
@@ -391,7 +391,7 @@
     } else {
       el.time.textContent = fmt(rem);
       el.status.textContent =
-        t.mode === 'running' ? 'Идёт отсчёт' :
+        t.mode === 'running' ? 'Идет отсчет' :
         t.mode === 'paused'  ? 'Пауза' : 'Готов';
     }
 
