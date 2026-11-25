@@ -133,7 +133,20 @@
   .person + .person{margin-top:16px;padding-top:16px;border-top:2px dashed rgba(110,42,5,.22)}
   .person .nm{font-size:clamp(28px,3.6vw,56px);letter-spacing:-.01em}
   .mode-pair .person .nm{font-size:clamp(22px,2.5vw,38px)}
-  .meta{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;align-items:center;font-size:15px;font-weight:600;color:var(--orange-deep)}
+
+  /* тур 4: пары складываются в танце — оператор отмечает первую пару */
+  .picker{display:flex;flex-direction:column;align-items:center;gap:14px;width:100%}
+  .pick-q{font-size:clamp(24px,2.4vw,38px);line-height:1.1}
+  .pick-q small{display:block;font-size:clamp(14px,1.1vw,18px);font-weight:600;color:var(--orange-deep);margin-top:4px}
+  .pick-row{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+  .pchip{
+    padding:10px 20px;border-radius:999px;font-size:clamp(16px,1.35vw,21px);font-weight:700;color:var(--ink);
+    background:rgba(255,255,255,.4);box-shadow:inset 0 0 0 2px rgba(110,42,5,.3);
+  }
+  .pchip:hover{background:rgba(255,255,255,.8)}
+  .pchip:focus-visible{outline:3px solid var(--orange);outline-offset:2px}
+  .pchip.W[aria-pressed="true"]{background:var(--orange-deep);color:#fff;box-shadow:none}
+  .pchip.M[aria-pressed="true"]{background:var(--ink);color:var(--gold);box-shadow:none}  .meta{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;align-items:center;font-size:15px;font-weight:600;color:var(--orange-deep)}
   .team{padding:3px 12px;border-radius:999px;font-size:14px;font-weight:700;letter-spacing:.02em}
   .team.W{background:var(--orange-deep);color:#fff}
   .team.M{background:var(--ink);color:var(--gold)}
@@ -552,7 +565,8 @@
     story:       { kz: 'Аяқталмаған оқиға',     ru: 'Незавершенная история' },
     statement:   { kz: 'Тұжырым',               ru: 'Утверждение' },
     finalTopic:  { kz: 'Финал тақырыбы',        ru: 'Тема финала' },
-    flower:      { kz: 'Гүл',                   ru: 'Цветок' }
+    flower:      { kz: 'Гүл',                   ru: 'Цветок' },
+    danced:      { kz: 'Жұпты таңдаңыз',        ru: 'Выберите пару' }
   };
   var BRANCH_KZ = { 'Атырауский филиал': 'Атырау қаласының филиалы', 'КазНИПИ': 'КазНИПИ' };
   var STATUS = {
@@ -724,7 +738,7 @@
     },
     {
       n: 4, short: 'За и против', shortKz: 'Пікірталас', title: 'За и против', titleKz: 'Жақтаймын / Қарсымын', flow: '4 → 2',
-      mode: 'pair', nameKick: KICK.pair, taskKick: KICK.statement, spin: 'Выбрать пару',
+      mode: 'pair', nameKick: KICK.pair, taskKick: KICK.statement, spin: 'Выбрать тему',
       pass: { W: 1, M: 1 },
       summary: 'Пара: подготовка <b>30 с</b> · аргумент по <b>60 с</b> · ответ по <b>30 с</b> · сначала «за», затем «против» · в финал <b>1 + 1</b>',
       timers: [
@@ -795,6 +809,7 @@
   var state = freshState(true);
   var spinning = false;
   var shown = null;   // что сейчас раскрыто на экране: { p: [...], k }
+  var pairSel = [];   // тур 4: кого оператор отметил как следующую пару (кто с кем танцевал)
 
   /* ---------- два языка: главный крупно, второй — субтитром ---------- */
   function other(){ return state.lang === 'kz' ? 'ru' : 'kz'; }
@@ -922,6 +937,56 @@
     return r;
   }
   function byTeam(ids, team){ return ids.filter(function(id){ return BY_ID[id].team === team; }); }
+
+  /* тур 4: пары складываются в танце. Оператор отмечает пару, рандомайзер выбирает только тему.
+     Когда осталось двое — это и есть следующая пара, отмечать не нужно. */
+  function needPick(t){ return tourOf(t).mode === 'pair' && remaining(t).length > 2; }
+  function wFirst(ids){ return byTeam(ids, 'W').concat(byTeam(ids, 'M')); }
+  function nextPair(t){
+    var rest = remaining(t);
+    if (!needPick(t)) return rest.length ? wFirst(rest) : null;
+    var sel = pairSel.filter(function(id){ return rest.indexOf(id) !== -1; });
+    return sel.length === 2 ? wFirst(sel) : null;
+  }
+  function togglePick(id){
+    if (spinning) return;
+    var i = pairSel.indexOf(id);
+    if (i !== -1){
+      pairSel.splice(i, 1);
+    } else {
+      var rest = remaining(state.tour), team = BY_ID[id].team;
+      var mixed = byTeam(rest, 'W').length && byTeam(rest, 'M').length;
+      // в смешанной паре — одна девушка и один парень: повторный выбор из той же команды заменяет прежний
+      pairSel = pairSel.filter(function(x){ return rest.indexOf(x) !== -1 && (!mixed || BY_ID[x].team !== team); });
+      if (pairSel.length >= 2) pairSel.shift();
+      pairSel.push(id);
+    }
+    renderReels();
+    refresh();
+  }
+  function renderPicker(node, t){
+    var rest = remaining(t);
+    node.innerHTML = '';
+    var box = document.createElement('div'); box.className = 'picker';
+    var q = document.createElement('div'); q.className = 'pick-q'; q.textContent = L(KICK.danced);
+    var qs = document.createElement('small'); qs.textContent = KICK.danced[other()];
+    q.appendChild(qs); box.appendChild(q);
+    ['W', 'M'].forEach(function(team){
+      var ids = byTeam(rest, team);
+      if (!ids.length) return;
+      var row = document.createElement('div'); row.className = 'pick-row';
+      ids.forEach(function(id){
+        var b = document.createElement('button');
+        b.type = 'button'; b.className = 'pchip ' + team;
+        b.textContent = shortName(id);
+        b.setAttribute('aria-pressed', pairSel.indexOf(id) !== -1 ? 'true' : 'false');
+        b.addEventListener('click', function(){ togglePick(id); b.blur(); });
+        row.appendChild(b);
+      });
+      box.appendChild(row);
+    });
+    node.appendChild(box);
+  }
   function shortName(id){ return BY_ID[id].name.split(' ').slice(0, 2).join(' '); }
   function taskText(T, k){
     if (!T.tasks) return T.fixedTask;
@@ -1073,7 +1138,15 @@
       renderPeople(el.nameValue, shown.p);
       if (T.tasks) renderTask(el.taskValue, T, shown.k);
     } else {
-      el.nameValue.textContent = L(T.nameKick);
+      var t = state.tour;
+      if (T.mode === 'pair' && remaining(t).length){
+        // пара не разыгрывается: выбор оператора или оставшиеся двое — сразу видны
+        if (needPick(t)) renderPicker(el.nameValue, t);
+        else renderPeople(el.nameValue, nextPair(t));
+        if (!spinning) setReel(el.nameReel, 'revealed');
+      } else {
+        el.nameValue.textContent = L(T.nameKick);
+      }
       if (T.tasks) el.taskValue.textContent = L(T.taskKick);
     }
     if (!T.tasks) renderTask(el.taskValue, T, null);
@@ -1124,7 +1197,8 @@
     });
 
     var tasksLeft = !T.tasks || freeTasks(t).length > 0;
-    var ready = rest.length > 0 && tasksLeft;
+    // тур 4: крутить можно, когда пара отмечена (или на экране прошлая пара — тогда кнопка вернет выбор)
+    var ready = rest.length > 0 && tasksLeft && (T.mode !== 'pair' || !!nextPair(t) || !!shown);
     el.spinBtn.disabled = !ready || spinning;
     el.undoBtn.disabled = !list.length || spinning;
 
@@ -1159,8 +1233,8 @@
     if (!rest.length) return null;
     var p;
     if (T.mode === 'pair'){
-      var w = byTeam(rest, 'W'), m = byTeam(rest, 'M');
-      p = (w.length && m.length) ? [pick(w), pick(m)] : shuffle(rest.slice()).slice(0, 2);
+      p = nextPair(t);   // пару определил танец, а не рандомайзер
+      if (!p) return null;
     } else {
       p = [pick(rest)];
     }
@@ -1195,7 +1269,12 @@
     if (spinning) return;
     var t = state.tour, T = tourOf(t);
     var plan = planDraw(t);
-    if (!plan) return;
+    if (!plan){
+      // тур 4: на экране прошлая пара, а следующую еще надо отметить — показываем выбор
+      if (T.mode === 'pair' && shown){ clearScreen(); refresh(); }
+      return;
+    }
+    pairSel = [];
 
     setStage(false);
     spinning = true;
@@ -1209,8 +1288,8 @@
 
     var pool = remaining(t);
     if (pool.length < 2) pool = roster(t);
-    var poolW = byTeam(pool, 'W'), poolM = byTeam(pool, 'M');
-    var pending = T.tasks ? 2 : 1;
+    var pairMode = T.mode === 'pair';
+    var pending = (T.tasks ? 1 : 0) + (pairMode ? 0 : 1);
 
     function finished(){
       pending -= 1;
@@ -1219,7 +1298,7 @@
       shown = plan;
       spinning = false;
       el.spinBtn.classList.remove('busy');
-      el.spinLbl.textContent = rest() ? 'Крутить дальше' : T.spin;
+      el.spinLbl.textContent = rest() ? (pairMode ? 'Следующая пара' : 'Крутить дальше') : T.spin;
       el.nameNo.textContent = '№ ' + draws(t).length;
       if (T.mode === 'flower') paintFlower(plan.k, -1);
       chord();
@@ -1229,15 +1308,16 @@
     }
     function rest(){ return remaining(t).length > 0; }
 
-    runReel(el.nameReel,
-      function(){
-        var ids = T.mode === 'pair'
-          ? ((poolW.length && poolM.length) ? [pick(poolW), pick(poolM)] : shuffle(pool.slice()).slice(0, 2))
-          : [pick(pool)];
-        renderPeople(el.nameValue, ids);
-      },
-      function(){ renderPeople(el.nameValue, plan.p); },
-      3200, finished);
+    if (pairMode){
+      // пара известна — сразу на экране, крутится только тема
+      renderPeople(el.nameValue, plan.p);
+      setReel(el.nameReel, 'revealed');
+    } else {
+      runReel(el.nameReel,
+        function(){ renderPeople(el.nameValue, [pick(pool)]); },
+        function(){ renderPeople(el.nameValue, plan.p); },
+        3200, finished);
+    }
 
     if (T.tasks){
       var free = freeTasks(t);
