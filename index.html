@@ -1229,13 +1229,6 @@
         : 'Очередность определена. Удачи финалистам!';
     } else if (!tasksLeft){
       el.hint.textContent = 'Задания этого тура закончились';
-    } else if (T.mode !== 'pair' && !list.length){
-      el.hint.textContent = 'Какая команда начинает, определит рандомайзер';
-    } else if (T.mode !== 'pair' && nextTeam(t)){
-      el.hint.innerHTML = '';
-      el.hint.append('Следующая очередь: ');
-      var nb = document.createElement('b'); nb.textContent = TEAM[nextTeam(t)];
-      el.hint.append(nb);
     } else {
       el.hint.textContent = '';
     }
