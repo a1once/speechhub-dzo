@@ -938,6 +938,20 @@
   }
   function byTeam(ids, team){ return ids.filter(function(id){ return BY_ID[id].team === team; }); }
 
+  /* команды выступают по очереди — внутри команды участник случайный.
+     Какая команда открывает тур, тоже решает рандомайзер при первом розыгрыше.
+     Если в одной команде никого не осталось, выходят оставшиеся из другой.
+     null — первый розыгрыш тура: команду определит рандомайзер. */
+  function nextTeam(t){
+    var rest = remaining(t), list = draws(t);
+    if (!list.length) return null;
+    var last = BY_ID[list[list.length - 1].p[0]].team;
+    var want = last === 'W' ? 'M' : 'W';
+    if (byTeam(rest, want).length) return want;
+    var alt = want === 'W' ? 'M' : 'W';
+    return byTeam(rest, alt).length ? alt : null;
+  }
+
   /* тур 4: пары складываются в танце. Оператор отмечает пару, рандомайзер выбирает только тему.
      Когда осталось двое — это и есть следующая пара, отмечать не нужно. */
   function needPick(t){ return tourOf(t).mode === 'pair' && remaining(t).length > 2; }
@@ -1215,6 +1229,13 @@
         : 'Очередность определена. Удачи финалистам!';
     } else if (!tasksLeft){
       el.hint.textContent = 'Задания этого тура закончились';
+    } else if (T.mode !== 'pair' && !list.length){
+      el.hint.textContent = 'Какая команда начинает, определит рандомайзер';
+    } else if (T.mode !== 'pair' && nextTeam(t)){
+      el.hint.innerHTML = '';
+      el.hint.append('Следующая очередь: ');
+      var nb = document.createElement('b'); nb.textContent = TEAM[nextTeam(t)];
+      el.hint.append(nb);
     } else {
       el.hint.textContent = '';
     }
@@ -1236,7 +1257,10 @@
       p = nextPair(t);   // пару определил танец, а не рандомайзер
       if (!p) return null;
     } else {
-      p = [pick(rest)];
+      var team = nextTeam(t);
+      // первый розыгрыш тура: команду выбирает рандомайзер, дальше — строго по очереди
+      if (!team) team = pick(['W', 'M'].filter(function(x){ return byTeam(rest, x).length; }));
+      p = [pick(byTeam(rest, team))];
     }
     var k = null;
     if (T.tasks){
@@ -1286,8 +1310,12 @@
     el.spinLbl.textContent = 'Крутится…';
     el.nameNo.textContent = '';
 
-    var pool = remaining(t);
-    if (pool.length < 2) pool = roster(t);
+    // в барабане мелькают только участники команды, чья сейчас очередь;
+    // в первом розыгрыше тура команда еще не известна — мелькают все
+    var first = !draws(t).length;
+    var team = BY_ID[plan.p[0]].team;
+    var pool = first ? remaining(t) : byTeam(remaining(t), team);
+    if (pool.length < 2) pool = first ? roster(t) : byTeam(roster(t), team);
     var pairMode = T.mode === 'pair';
     var pending = (T.tasks ? 1 : 0) + (pairMode ? 0 : 1);
 
